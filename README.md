@@ -86,14 +86,13 @@ curl -X POST http://localhost:3000/v1/scraper/enricher/start \
 
 ## Project Structure
 ```
-src/
-  config/       # env + runtime configuration
-  clients/      # MailTester + key provider integrations
-  controllers/  # Express controllers
-  routes/       # Express routers
-  services/     # Enrichment logic
-  utils/        # Helpers (patterns, rate limiter)
-  server.js     # Express bootstrap + listener
+config/       # env + runtime configuration
+clients/      # MailTester + key provider integrations
+controllers/  # Express controllers
+routes/       # Express routers
+services/     # Enrichment logic
+utils/        # Helpers (patterns, rate limiter)
+server.js     # Express bootstrap + listener
 ```
 
 ## Notes

@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Minimal Node.js API for email enrichment and validation using MailTester Ninja",
   "type": "module",
-  "main": "src/server.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "axios": "^1.6.0",

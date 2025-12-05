@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Email Enricher</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="dashboard show-upload">
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <span class="brand-icon" aria-hidden="true">🔭</span>
+          <div>
+            <p class="eyebrow">Email Finder</p>
+            <h1>Email Enricher</h1>
+          </div>
+        </div>
+        <button type="button" id="new-list-btn" class="primary-btn">
+          <span class="icon">+</span>
+          New List
+        </button>
+      </header>
+
+      <section class="panel" id="list-view">
+        <div class="list-toolbar">
+          <div class="search-field">
+            <span class="icon" aria-hidden="true">🔍</span>
+            <input type="search" id="job-search" placeholder="Search by file name..." aria-label="Search jobs" />
+          </div>
+          <button type="button" id="refresh-jobs" class="ghost-btn">Refresh</button>
+        </div>
+        <div class="table-wrapper">
+          <table id="jobs-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Total Data</th>
+                <th>Enriched Emails</th>
+                <th>Download</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-tbody"></tbody>
+          </table>
+        </div>
+        <p id="empty-state" class="empty-state">No uploads yet. Click “New List” to process your first file.</p>
+      </section>
+
+      <section id="upload-panel" class="panel upload-panel">
+        <div class="panel-header upload-header">
+          <div>
+            <h2>Upload Dashboard</h2>
+            <p class="summary">Upload a CSV or Excel file and monitor live enrichment progress.</p>
+          </div>
+          <button type="button" id="close-upload" class="ghost-btn">Back to Dashboard</button>
+        </div>
+
+        <div class="upload-stack">
+          <form id="upload-form" class="upload-form">
+            <div class="field-group">
+              <label for="user-id">User ID (from JWT)</label>
+              <input type="text" id="user-id" name="userId" placeholder="e.g. user_123" />
+            </div>
+            <div class="field-group">
+              <label for="file-input">Upload CSV/XLS/XLSX</label>
+              <input type="file" id="file-input" name="file" accept=".csv,.xls,.xlsx" required />
+              <p class="hint">Limit: 10,000 rows • Required columns: First Name, Last Name, Website</p>
+            </div>
+            <button type="submit" id="submit-btn" class="primary-btn">Run Enrichment</button>
+          </form>
+          <div id="status-banner" class="status" role="status" aria-live="polite"></div>
+        </div>
+
+        <div id="progress-section" class="progress" hidden>
+          <div class="panel-header">
+            <div>
+              <h2>Job Progress</h2>
+              <p id="job-status" class="summary">No job running.</p>
+            </div>
+            <button type="button" id="resume-job" class="ghost-btn" hidden>Resume Last Job</button>
+          </div>
+          <div class="progress-bar">
+            <div id="progress-fill"></div>
+          </div>
+          <ul id="status-counts" class="stats"></ul>
+        </div>
+
+        <div id="results-section" class="results" hidden>
+          <div class="panel-header">
+            <div>
+              <h2>Results Preview</h2>
+              <p id="job-summary" class="summary"></p>
+            </div>
+            <a id="download-link" class="primary-btn" href="#" target="_blank" rel="noopener">Download CSV</a>
+          </div>
+          <div class="table-wrapper results-table">
+            <table id="results-table">
+              <thead>
+                <tr>
+                  <th>First Name</th>
+                  <th>Last Name</th>
+                  <th>Domain</th>
+                  <th>Best Email</th>
+                  <th>Status</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,4 +1,5 @@
-// Generate the eight candidate email addresses for a contact
+// Generate candidate email addresses for a contact, gracefully handling
+// cases where only a first or last name is present.
 export function generatePatterns({ firstName, lastName, domain }) {
   const clean = (str) => String(str || '').trim().toLowerCase().replace(/\s+/g, '');
   const first = clean(firstName);
@@ -6,14 +7,34 @@ export function generatePatterns({ firstName, lastName, domain }) {
   const f = first.charAt(0);
   const l = last.charAt(0);
   const base = clean(domain);
-  return [
-    `${first}.${last}@${base}`,    // first.last
-    `${f}${last}@${base}`,          // f + last
-    `${first}@${base}`,             // first only
-    `${first}${last}@${base}`,      // firstlast
-    `${first}${l}@${base}`,         // first + l
-    `${first}.${l}@${base}`,        // first.l
-    `${first}_${last}@${base}`,     // first_last
-    `${last}${f}@${base}`,          // last + f
-  ];
+
+  if (!base) {
+    return [];
+  }
+
+  const ordered = [];
+  const add = (condition, localPart) => {
+    if (!condition) {
+      return;
+    }
+    const local = String(localPart || '').replace(/^[._-]+|[._-]+$/g, '');
+    if (local) {
+      ordered.push(`${local}@${base}`);
+    }
+  };
+
+  const hasFirst = Boolean(first);
+  const hasLast = Boolean(last);
+
+  add(hasFirst && hasLast, `${first}.${last}`);
+  add(hasFirst && hasLast, `${f}${last}`);
+  add(hasFirst, `${first}`);
+  add(hasFirst && hasLast, `${first}${last}`);
+  add(hasFirst && hasLast, `${first}${l}`);
+  add(hasFirst && hasLast, `${first}.${l}`);
+  add(hasFirst && hasLast, `${first}_${last}`);
+  add(hasFirst && hasLast, `${last}${f}`);
+  add(hasLast, `${last}`);
+
+  return Array.from(new Set(ordered));
 }

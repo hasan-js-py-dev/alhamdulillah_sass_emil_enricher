@@ -29,6 +29,7 @@ Minimal Express service that generates candidate email addresses for a list of c
 | `MAILTESTER_BASE_URL` | `https://happy.mailtester.ninja/ninja` | MailTester Ninja endpoint used for validation |
 | `KEY_PROVIDER_URL` | `https://api.daddy-leads.com/mailtester/key/available` | Internal service that returns a MailTester key |
 | `MIN_DELAY_MS` | `900` | Minimum ms between outbound MailTester requests (basic rate limiting) |
+| `COMBO_BATCH_SIZE` | `25` | Number of contacts processed concurrently per pattern wave |
 | `PORT` | `3000` | HTTP port for the Express server |
 
 ## API Usage
@@ -42,15 +43,45 @@ Minimal Express service that generates candidate email addresses for a list of c
       "firstName": "Ada",
       "lastName": "Lovelace",
       "domain": "example.com"
+
+### File Upload Workflow
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/v1/scraper/enricher/upload` | `POST` (multipart) | Accepts a CSV/XLS/XLSX upload (field `file`) plus optional `X-User-Id` header, validates the dataset, runs enrichment in configurable batches, and returns `{ jobId, downloadUrl, outputFile, results }`. |
+| `/v1/scraper/enricher/download/:jobId` | `GET` | Streams the processed CSV that includes the original columns plus `bestEmail`, `status`, and `messageSummary`. |
+
+Key rules enforced by the upload pipeline:
+
+- Allowed file types: `.csv`, `.xls`, `.xlsx`.
+- Maximum 10,000 data rows per upload.
+- Required columns: `First Name`, `Last Name`, and `Website` (case-insensitive); other columns are preserved.
+- First/last names and website domains are cleaned automatically before processing. Invalid rows trigger a descriptive error.
+- Rows with no website/domain or with neither first nor last name are skipped automatically (status `skipped_missing_fields`). Rows that contain at least one of the name fields still run through enrichment using single-name combo patterns.
+- Temporary job directories live under `tempUploads/` with metadata (jobId, userId, timestamps). A background scheduler purges artifacts older than 24 hours unless the job is currently running.
+- Once processing completes a new CSV is emitted inside the job directory and can be downloaded via the API or directly from the new web UI.
+
+### Frontend testing surface
+
+Run `npm start` and open `http://localhost:3000/` to access a lightweight UI (served from `public/`). The page lets you:
+
+1. Provide a user ID (mirrors the future JWT claim).
+2. Upload a CSV/XLS/XLSX file.
+3. Kick off the enrichment job and inspect the JSON response inline.
+4. Download the enriched CSV through a single click once the backend finishes.
     }
   ]
 }
 ```
 
 **Response body**
+middlewares/  # Upload + job context middleware
 ```json
 {
+  comboProcessor.service.js  # batch combo engine
+  uploadProcessor.service.js # file parsing + CSV writer
   "results": [
+public/       # Static upload UI (HTML/CSS/JS)
     {
       "firstName": "Ada",
       "lastName": "Lovelace",
@@ -99,3 +130,4 @@ server.js     # Express bootstrap + listener
 - API key fetching is cached per process to avoid overloading the provider.
 - Rate limiting is coarse but ensures a minimum spacing between MailTester calls; adjust `MIN_DELAY_MS` to match your plan.
 - The key provider may return `subscriptionId` values wrapped in `{}`; the app now strips those braces automatically before calling MailTester.
+- Uploaded files are stored temporarily under `tempUploads/` and deleted automatically after 24 hours by the cleanup scheduler.

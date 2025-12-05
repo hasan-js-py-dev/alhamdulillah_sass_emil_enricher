@@ -1,0 +1,141 @@
+import { config } from '../config/env.js';
+
+const MAX_COMBOS_DEFAULT = 8;
+
+/**
+ * Processes contacts in configurable batch waves, verifying candidate emails sequentially per contact.
+ * Each wave pulls up to comboBatchSize unresolved contacts and advances them by one combo.
+ *
+ * @param {Array<{firstName: string, lastName: string, domain: string}>} contacts
+ * @param {{ verifyEmail: (email: string) => Promise<object>, generatePatterns: (contact: object) => string[], maxCombos?: number }} options
+ * @returns {Promise<Array<{contact: object, bestEmail: string|null, status: string|null, details: object, resultsPerCombo: Array<{email: string, code: string|null, message: string|null, error: string|null}>}>>}
+ */
+export async function processContactsInBatches(contacts, {
+  verifyEmail,
+  generatePatterns,
+  maxCombos = MAX_COMBOS_DEFAULT,
+  onResult,
+}) {
+  const batchSize = Math.max(1, Number(config.comboBatchSize) || 1);
+  const states = contacts.map((contact) => ({
+    contact,
+    patterns: generatePatterns(contact) || [],
+    currentComboIndex: 0,
+    done: false,
+    bestEmail: null,
+    status: null,
+    details: {},
+    resultsPerCombo: [],
+  }));
+
+  const processLoop = async () => {
+    while (true) {
+      const pendingStates = states.filter((state) => !state.done && state.currentComboIndex < maxCombos && state.currentComboIndex < state.patterns.length);
+      if (pendingStates.length === 0) {
+        // Nothing left to process; finalize any states that exhausted patterns without explicit status.
+        await Promise.all(
+          states.map((state) => {
+            if (!state.done) {
+              return finalizeState(state, onResult);
+            }
+            return null;
+          }),
+        );
+        break;
+      }
+
+      const batch = pendingStates.slice(0, batchSize);
+      await Promise.all(batch.map((state) => advanceState(state, verifyEmail, maxCombos, onResult)));
+    }
+  };
+
+  await processLoop();
+
+  return states.map((state) => ({
+    contact: state.contact,
+    bestEmail: state.bestEmail,
+    status: state.status,
+    details: state.details,
+    resultsPerCombo: state.resultsPerCombo,
+  }));
+}
+
+async function advanceState(state, verifyEmail, maxCombos, notify) {
+  if (state.done) {
+    return;
+  }
+
+  if (state.currentComboIndex >= maxCombos || state.currentComboIndex >= state.patterns.length) {
+    await finalizeState(state, notify);
+    return;
+  }
+
+  const email = state.patterns[state.currentComboIndex];
+  let result;
+  try {
+    result = await verifyEmail(email);
+  } catch (error) {
+    result = { code: null, message: null, error: error.message };
+  }
+
+  state.resultsPerCombo.push({
+    email,
+    code: result?.code ?? null,
+    message: result?.message ?? null,
+    error: result?.error ?? null,
+  });
+
+  if (result?.code === 'ok') {
+    state.bestEmail = email;
+    state.status = 'valid';
+    state.details = { code: result.code, message: result.message };
+    state.done = true;
+    if (notify) {
+      await notify(buildResultPayload(state));
+    }
+    return;
+  }
+
+  state.currentComboIndex += 1;
+  if (state.currentComboIndex >= maxCombos || state.currentComboIndex >= state.patterns.length) {
+    await finalizeState(state, notify);
+  }
+}
+
+async function finalizeState(state, notify) {
+  if (state.done) {
+    return;
+  }
+
+  const allCatchAll = state.resultsPerCombo.length > 0 && state.resultsPerCombo.every((entry) => entry.message === 'Catch-All');
+
+  if (allCatchAll) {
+    state.bestEmail = state.patterns[2] || state.patterns[0] || null;
+    state.status = 'catchall_default';
+    state.details = { reason: 'All candidates returned Catch-All' };
+  } else {
+    const firstError = state.resultsPerCombo.find((entry) => entry.error)?.error;
+    state.bestEmail = null;
+    state.status = 'not_found_valid_emails';
+    state.details = {
+      reason: 'All candidates rejected or unverifiable',
+      ...(firstError ? { lastError: firstError } : {}),
+    };
+  }
+
+  state.done = true;
+
+  if (notify) {
+    await notify(buildResultPayload(state));
+  }
+}
+
+function buildResultPayload(state) {
+  return {
+    contact: state.contact,
+    bestEmail: state.bestEmail,
+    status: state.status,
+    details: state.details,
+    resultsPerCombo: state.resultsPerCombo,
+  };
+}

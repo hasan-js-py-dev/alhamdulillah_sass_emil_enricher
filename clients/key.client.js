@@ -1,9 +1,22 @@
 import axios from 'axios';
 import { config } from '../config/env.js';
 
-// Simple in-memory cache for the MailTester key.  The key provider is called
-// only once per process lifetime.  Subsequent calls return the cached key.
-let cachedKeyInfo = null;
+const WAIT_FALLBACK_MS = 1000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function extractWaitDuration(payload) {
+  const rawDelay =
+    payload?.waitForMs ??
+    payload?.waitMs ??
+    payload?.retryAfterMs ??
+    payload?.retryInMs ??
+    payload?.nextRequestAllowedInMs;
+  const parsed = Number(rawDelay);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : WAIT_FALLBACK_MS;
+}
 
 function extractKey(data) {
   const rawKey = data?.key ?? data?.subscriptionId ?? data?.id;
@@ -14,29 +27,36 @@ function extractKey(data) {
 }
 
 /**
- * Fetches a MailTester subscription key from the internal key provider.
- * Caches the key for subsequent calls.
+ * Fetches a MailTester subscription key from the key-rotation microservice.
+ * Always retrieves a fresh allocation and respects "wait" instructions.
  *
- * @returns {Promise<{key: string, subscriptionId?: string, plan?: string}>}
+ * @returns {Promise<{key: string, status?: string, avgRequestIntervalMs?: number, nextRequestAllowedAt?: string}>}
  */
 export async function getMailtesterKey() {
-  if (cachedKeyInfo) {
-    return cachedKeyInfo;
-  }
-  try {
-    const response = await axios.get(config.keyProviderUrl);
-    const normalizedKey = extractKey(response.data);
-    if (!normalizedKey) {
-      throw new Error('Key provider response missing subscription key');
+  while (true) {
+    try {
+      const response = await axios.get(config.keyProviderUrl);
+      const payload = response.data || {};
+      const normalizedKey = extractKey(payload);
+      const status = typeof payload.status === 'string' ? payload.status.toLowerCase() : null;
+
+      if (status === 'wait' && !normalizedKey) {
+        const waitMs = extractWaitDuration(payload);
+        console.log('[KeyClient] Rotation service asked us to wait', { waitMs });
+        await sleep(waitMs);
+        continue;
+      }
+
+      if (!normalizedKey) {
+        throw new Error('Key provider response missing subscription key');
+      }
+
+      return {
+        ...payload,
+        key: normalizedKey,
+      };
+    } catch (error) {
+      throw new Error(`Failed to retrieve MailTester key: ${error.message}`);
     }
-    // Preserve original fields but ensure callers can rely on `key`.
-    cachedKeyInfo = {
-      ...response.data,
-      key: normalizedKey,
-    };
-    return cachedKeyInfo;
-  } catch (error) {
-    // Provide a clear error for upstream handlers.
-    throw new Error(`Failed to retrieve MailTester key: ${error.message}`);
   }
 }

@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { config } from '../config/env.js';
 import { getMailtesterKey } from './key.client.js';
-import { waitForThrottle } from '../utils/rateLimiter.js';
 
 /**
  * Verifies an email address using MailTester Ninja.
@@ -12,10 +11,7 @@ import { waitForThrottle } from '../utils/rateLimiter.js';
  */
 export async function verifyEmail(email) {
   try {
-    // Respect rate limits by waiting if necessary.
-    await waitForThrottle(config.minDelayMs);
-
-    // Obtain API key from the key provider (cached after first call).
+    // Obtain a fresh API key allocation for every verification.
     const keyInfo = await getMailtesterKey();
     const key = keyInfo.key;
     if (!key) {
@@ -24,7 +20,12 @@ export async function verifyEmail(email) {
 
     // Prepare the request URL with encoded query parameters.
     const url = `${config.mailTesterBaseUrl}?email=${encodeURIComponent(email)}&key=${encodeURIComponent(key)}`;
-    console.log('[MailTester] Requesting verification', { email, url });
+    console.log('[MailTester] Requesting verification', {
+      email,
+      url,
+      avgRequestIntervalMs: keyInfo.avgRequestIntervalMs,
+      nextRequestAllowedAt: keyInfo.nextRequestAllowedAt,
+    });
     const response = await axios.get(url);
     const data = response.data || {};
 

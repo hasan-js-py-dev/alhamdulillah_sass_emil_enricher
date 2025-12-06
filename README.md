@@ -7,7 +7,7 @@ Minimal Express service that generates candidate email addresses for a list of c
 ## Features
 - POST endpoint at `/v1/scraper/enricher/start` that accepts a batch of contacts
 - Deterministic email pattern generator covering common naming conventions
-- MailTester Ninja client with key-provider integration and throttled requests
+- MailTester Ninja client that relies on the key-rotation microservice for pacing
 - Catch-all handling rules to surface the most useful fallback when no address validates
 - Centralized error handling and JSON-only responses
 
@@ -28,7 +28,6 @@ Minimal Express service that generates candidate email addresses for a list of c
 | --- | --- | --- |
 | `MAILTESTER_BASE_URL` | `https://happy.mailtester.ninja/ninja` | MailTester Ninja endpoint used for validation |
 | `KEY_PROVIDER_URL` | `https://api.daddy-leads.com/mailtester/key/available` | Internal service that returns a MailTester key |
-| `MIN_DELAY_MS` | `900` | Minimum ms between outbound MailTester requests (basic rate limiting) |
 | `COMBO_BATCH_SIZE` | `25` | Number of contacts processed concurrently per pattern wave |
 | `PORT` | `3000` | HTTP port for the Express server |
 
@@ -128,6 +127,6 @@ server.js     # Express bootstrap + listener
 
 ## Notes
 - API key fetching is cached per process to avoid overloading the provider.
-- Rate limiting is coarse but ensures a minimum spacing between MailTester calls; adjust `MIN_DELAY_MS` to match your plan.
+- Request pacing is delegated to the key-rotation microservice, which only hands out keys when it is safe to call MailTester.
 - The key provider may return `subscriptionId` values wrapped in `{}`; the app now strips those braces automatically before calling MailTester.
 - Uploaded files are stored temporarily under `tempUploads/` and deleted automatically after 24 hours by the cleanup scheduler.

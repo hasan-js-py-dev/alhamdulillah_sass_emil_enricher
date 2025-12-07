@@ -58,7 +58,14 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
     const outputFilename = `output-${jobId}-${Date.now()}.csv`;
     const outputPath = buildJobFilePath(jobDir, outputFilename);
     const downloadUrl = `/v1/scraper/enricher/download/${jobId}`;
-    await initializeCsvFile(outputPath, csvColumns);
+    const initialCsvRows = normalizedRows.map((row) =>
+      composeCsvRowData(row.sanitizedRow, row.contact ? {} : {
+        status: 'skipped_missing_fields',
+        messageSummary: row.skipReason,
+      }),
+    );
+    const csvWriter = createCsvSnapshotWriter(outputPath, csvColumns, initialCsvRows);
+    await csvWriter.writeSnapshot();
 
     metadataSnapshot = {
       ...metadataSnapshot,
@@ -70,24 +77,13 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
       progress,
       outputFilename,
       downloadUrl,
+      resultCount: 0,
       lastUpdate: new Date().toISOString(),
     };
     await writeMetadata(jobDir, metadataSnapshot);
     await notifyReady();
 
-    const appendRowInOrder = createCsvRowAppender(outputPath, csvColumns);
     const rowLookup = new Map(normalizedRows.map((row) => [row.rowId, row]));
-    for (const row of normalizedRows) {
-      if (row.contact) {
-        continue;
-      }
-      const skipRow = composeCsvRowData(row.sanitizedRow, {
-        bestEmail: '',
-        status: 'skipped_missing_fields',
-        messageSummary: row.skipReason,
-      });
-      await appendRowInOrder(row.rowId, skipRow);
-    }
 
     const updateProgress = async (status) => {
       progress.processedContacts += 1;
@@ -96,6 +92,7 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
       metadataSnapshot = {
         ...metadataSnapshot,
         progress: { ...progress },
+        resultCount: progress.processedContacts,
         lastUpdate: new Date().toISOString(),
       };
       await writeMetadata(jobDir, metadataSnapshot);
@@ -103,7 +100,7 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
 
     const contacts = runnableRows.map((row) => ({ ...row.contact, rowId: row.rowId }));
 
-    const appendContactResult = async (resultPayload) => {
+    const updateCsvRowWithResult = async (resultPayload) => {
       const rowId = resultPayload?.contact?.rowId;
       if (typeof rowId !== 'number') {
         return;
@@ -117,13 +114,13 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
         status: resultPayload.status || '',
         messageSummary: deriveMessageSummary(resultPayload),
       });
-      await appendRowInOrder(rowId, csvRow);
+      await csvWriter.setRow(rowId, csvRow);
     };
 
     const enrichmentResults = contacts.length
       ? await enrichContacts(contacts, {
           onResult: async (result) => {
-            await appendContactResult(result);
+            await updateCsvRowWithResult(result);
             await updateProgress(result.status);
           },
         })
@@ -431,14 +428,32 @@ function buildCsvColumnOrder(normalizedRows) {
   return columns;
 }
 
-async function initializeCsvFile(filePath, columns) {
-  const headerLine = `${columns.map((column) => escapeCsvValue(column)).join(',')}\n`;
-  await fs.writeFile(filePath, headerLine, 'utf-8');
+function createCsvSnapshotWriter(filePath, columns, initialRows) {
+  let rows = initialRows.slice();
+  let writeQueue = Promise.resolve();
+
+  const scheduleWrite = () => {
+    const payload = serializeCsv(columns, rows);
+    writeQueue = writeQueue.then(() => fs.writeFile(filePath, payload, 'utf-8'));
+    return writeQueue;
+  };
+
+  return {
+    async writeSnapshot() {
+      await scheduleWrite();
+    },
+    async setRow(rowId, newRow) {
+      rows[rowId] = newRow;
+      await scheduleWrite();
+    },
+  };
 }
 
-async function appendCsvRow(filePath, columns, record) {
-  const line = `${columns.map((column) => escapeCsvValue(record?.[column] ?? '')).join(',')}\n`;
-  await fs.appendFile(filePath, line, 'utf-8');
+function serializeCsv(columns, rows) {
+  const headerLine = columns.map((column) => escapeCsvValue(column)).join(',');
+  const bodyLines = rows.map((row) => columns.map((column) => escapeCsvValue(row?.[column] ?? '')).join(','));
+  const lines = [headerLine, ...bodyLines];
+  return `${lines.join('\n')}\n`;
 }
 
 function escapeCsvValue(value) {
@@ -450,21 +465,6 @@ function escapeCsvValue(value) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
   return stringValue;
-}
-
-function createCsvRowAppender(filePath, columns) {
-  let nextRowId = 0;
-  const pending = new Map();
-
-  return async (rowId, record) => {
-    pending.set(rowId, record);
-    while (pending.has(nextRowId)) {
-      const row = pending.get(nextRowId);
-      pending.delete(nextRowId);
-      await appendCsvRow(filePath, columns, row);
-      nextRowId += 1;
-    }
-  };
 }
 
 function composeCsvRowData(baseRow, overrides = {}) {

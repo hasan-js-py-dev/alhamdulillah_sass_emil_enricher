@@ -14,6 +14,7 @@ const progressSection = document.getElementById('progress-section');
 const progressFill = document.getElementById('progress-fill');
 const jobStatusText = document.getElementById('job-status');
 const statusCountsList = document.getElementById('status-counts');
+const enrichedCountText = document.getElementById('enriched-count');
 const resumeJobBtn = document.getElementById('resume-job');
 const newListBtn = document.getElementById('new-list-btn');
 const closeUploadBtn = document.getElementById('close-upload');
@@ -162,6 +163,9 @@ function resetUploadPanel() {
   if (jobSummary) {
     jobSummary.textContent = '';
   }
+  if (enrichedCountText) {
+    enrichedCountText.textContent = 'Enriched Emails: 0';
+  }
 }
 
 function startJobTracking(jobId) {
@@ -202,6 +206,7 @@ async function fetchJobStatus(jobId, { silent } = {}) {
     }
     const metadata = await response.json();
     updateProgressUI(metadata);
+    syncJobCacheWithMetadata(metadata);
     if (metadata.status === 'completed' || metadata.status === 'failed') {
       cleanupJobPolling();
       localStorage.removeItem('lastJobId');
@@ -240,6 +245,13 @@ function updateProgressUI(metadata) {
     : status === 'completed' ? 100 : 0;
   if (progressFill) {
     progressFill.style.width = `${Math.min(100, percent)}%`;
+  }
+  if (enrichedCountText) {
+    const enriched = progress.processedContacts ?? 0;
+    const total = progress.totalContacts ?? metadata?.totals?.totalRows ?? 0;
+    enrichedCountText.textContent = total
+      ? `Enriched Emails: ${enriched} / ${total}`
+      : `Enriched Emails: ${enriched}`;
   }
 
   const counts = progress.statusCounts || {};
@@ -324,6 +336,47 @@ function applyJobFilter() {
     ? jobCache.filter((job) => (job.originalFilename || '').toLowerCase().includes(term))
     : jobCache;
   renderJobs(subset);
+}
+
+function syncJobCacheWithMetadata(metadata) {
+  if (!metadata?.jobId) {
+    return;
+  }
+  const enriched = typeof metadata.resultCount === 'number'
+    ? metadata.resultCount
+    : metadata.progress?.processedContacts ?? null;
+
+  const nextFields = {
+    jobId: metadata.jobId,
+    status: metadata.status || 'processing',
+    progress: metadata.progress || null,
+    totals: metadata.totals || null,
+    downloadUrl: metadata.downloadUrl || null,
+    completedAt: metadata.completedAt || null,
+    resultCount: enriched,
+    originalFilename: metadata.originalFilename,
+    createdAt: metadata.createdAt,
+  };
+
+  const index = jobCache.findIndex((job) => job.jobId === metadata.jobId);
+  if (index >= 0) {
+    jobCache[index] = {
+      ...jobCache[index],
+      ...nextFields,
+      resultCount: enriched ?? jobCache[index].resultCount ?? 0,
+      progress: metadata.progress || jobCache[index].progress || null,
+      totals: metadata.totals || jobCache[index].totals || null,
+      downloadUrl: metadata.downloadUrl || jobCache[index].downloadUrl || null,
+      completedAt: metadata.completedAt || jobCache[index].completedAt || null,
+    };
+  } else {
+    jobCache.unshift({
+      originalFilename: metadata.originalFilename || 'Untitled file',
+      createdAt: metadata.createdAt || new Date().toISOString(),
+      ...nextFields,
+    });
+  }
+  applyJobFilter();
 }
 
 function renderJobs(jobs) {

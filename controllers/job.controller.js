@@ -19,7 +19,9 @@ export async function listJobs(req, res) {
         totals: meta.totals || null,
         progress: meta.progress || null,
         downloadUrl: meta.downloadUrl || null,
-        resultCount: meta.resultCount || 0,
+        resultCount: typeof meta.resultCount === 'number'
+          ? meta.resultCount
+          : meta.progress?.processedContacts || 0,
       }))
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
       .slice(0, limit);

@@ -26,11 +26,11 @@ export function generatePatterns({ firstName, lastName, domain }) {
   const hasFirst = Boolean(first);
   const hasLast = Boolean(last);
 
-  add(hasFirst && hasLast, `${first}.${last}`);
-  add(hasFirst && hasLast, `${f}${last}`);
   add(hasFirst, `${first}`);
-  add(hasFirst && hasLast, `${first}${last}`);
+  add(hasFirst && hasLast, `${first}.${last}`);
   add(hasFirst && hasLast, `${first}${l}`);
+  add(hasFirst && hasLast, `${first}${last}`);
+  add(hasFirst && hasLast, `${f}${last}`);
   add(hasFirst && hasLast, `${first}.${l}`);
   add(hasFirst && hasLast, `${first}_${last}`);
   add(hasFirst && hasLast, `${last}${f}`);

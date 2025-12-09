@@ -1,4 +1,6 @@
 // Shapes final API payloads by merging normalized rows with enrichment results and summaries.
+import { DELIVERY_STATUS } from './status.utils.js';
+
 export function buildResultSets(normalizedRows, enrichmentResults) {
   const apiResults = [];
   let enrichmentIndex = 0;
@@ -9,8 +11,8 @@ export function buildResultSets(normalizedRows, enrichmentResults) {
         firstName: row.profile.firstName,
         lastName: row.profile.lastName,
         domain: row.profile.domain,
-        bestEmail: null,
-        status: 'skipped_missing_fields',
+        bestEmail: row.existingEmail || null,
+        status: row.existingEmail ? DELIVERY_STATUS.VALID : DELIVERY_STATUS.NOT_FOUND,
         details: { reason: row.skipReason },
         allCheckedCandidates: [],
       };
@@ -26,20 +28,13 @@ export function buildResultSets(normalizedRows, enrichmentResults) {
   return { apiResults };
 }
 
-export function deriveMessageSummary(result) {
-  if (!result?.details) {
-    return '';
-  }
-  return result.details.message || result.details.reason || '';
-}
-
 function defaultResult(profile) {
   return {
     firstName: profile.firstName,
     lastName: profile.lastName,
     domain: profile.domain,
     bestEmail: null,
-    status: 'error',
+    status: DELIVERY_STATUS.NOT_FOUND,
     details: { reason: 'Unexpected processing mismatch' },
     allCheckedCandidates: [],
   };

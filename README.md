@@ -48,7 +48,7 @@ Minimal Express service that generates candidate email addresses for a list of c
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/v1/scraper/enricher/upload` | `POST` (multipart) | Accepts a CSV/XLS/XLSX upload (field `file`) plus optional `X-User-Id` header, validates the dataset, runs enrichment in configurable batches, and returns `{ jobId, downloadUrl, outputFile, results }`. |
-| `/v1/scraper/enricher/download/:jobId` | `GET` | Streams the processed CSV that includes the original columns plus `bestEmail`, `status`, and `messageSummary`. |
+| `/v1/scraper/enricher/download/:jobId` | `GET` | Streams the processed CSV that includes only `First Name`, `Last Name`, `Website`, and the appended `Email` + `Status` columns. |
 
 Key rules enforced by the upload pipeline:
 

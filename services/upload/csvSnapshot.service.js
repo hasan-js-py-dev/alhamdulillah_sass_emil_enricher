@@ -1,21 +1,9 @@
 // Builds CSV column order and maintains an append-friendly snapshot writer for job outputs.
 import fs from 'fs/promises';
+import { OUTPUT_COLUMNS, CSV_APPEND_COLUMNS } from './upload.constants.js';
 
-export function buildCsvColumnOrder(normalizedRows) {
-  const columns = [];
-  normalizedRows.forEach((row) => {
-    Object.keys(row.sanitizedRow || {}).forEach((key) => {
-      if (!columns.includes(key)) {
-        columns.push(key);
-      }
-    });
-  });
-  ['bestEmail', 'status', 'messageSummary'].forEach((extra) => {
-    if (!columns.includes(extra)) {
-      columns.push(extra);
-    }
-  });
-  return columns;
+export function buildCsvColumnOrder() {
+  return [...OUTPUT_COLUMNS, ...CSV_APPEND_COLUMNS];
 }
 
 export function createCsvSnapshotWriter(filePath, columns, initialRows) {
@@ -40,12 +28,11 @@ export function createCsvSnapshotWriter(filePath, columns, initialRows) {
 }
 
 export function composeCsvRowData(baseRow, overrides = {}) {
-  return {
-    ...baseRow,
-    bestEmail: overrides.bestEmail || '',
-    status: overrides.status || '',
-    messageSummary: overrides.messageSummary || '',
-  };
+  const row = { ...baseRow };
+  CSV_APPEND_COLUMNS.forEach((column) => {
+    row[column] = overrides[column] ?? '';
+  });
+  return row;
 }
 
 function serializeCsv(columns, rows) {

@@ -1,9 +1,7 @@
-const bodyEl = document.body;
-const EMPTY_DEFAULT_MESSAGE = 'No uploads yet. Click “New List” to process your first file.';
+const EMPTY_DEFAULT_MESSAGE = 'No uploads yet. Drop your first file to get started.';
 const EMPTY_FILTER_MESSAGE = 'No lists match your search.';
 const form = document.getElementById('upload-form');
 const fileInput = document.getElementById('file-input');
-const userIdInput = document.getElementById('user-id');
 const submitBtn = document.getElementById('submit-btn');
 const statusBanner = document.getElementById('status-banner');
 const resultsSection = document.getElementById('results-section');
@@ -16,45 +14,29 @@ const jobStatusText = document.getElementById('job-status');
 const statusCountsList = document.getElementById('status-counts');
 const enrichedCountText = document.getElementById('enriched-count');
 const resumeJobBtn = document.getElementById('resume-job');
-const newListBtn = document.getElementById('new-list-btn');
-const closeUploadBtn = document.getElementById('close-upload');
 const jobsTableBody = document.getElementById('jobs-tbody');
 const jobSearchInput = document.getElementById('job-search');
 const refreshJobsBtn = document.getElementById('refresh-jobs');
 const emptyState = document.getElementById('empty-state');
+const dropzone = document.getElementById('dropzone');
+const fileNameLabel = document.getElementById('file-name');
+const newJobBtn = document.getElementById('new-list-btn');
+const closeUploadBtn = document.getElementById('close-upload');
+const pageBody = document.body || document.querySelector('body');
+const DEFAULT_USER_ID = 'demo-user';
 
 let pollHandle = null;
 let activeJobId = null;
 let jobCache = [];
-let userPinnedUpload = false;
 
 if (form) {
   form.addEventListener('submit', handleUploadSubmit);
-}
-
-if (newListBtn) {
-  newListBtn.addEventListener('click', () => {
-    userPinnedUpload = true;
-    bodyEl.classList.add('show-upload');
-    resetUploadPanel();
-  });
-}
-
-if (closeUploadBtn) {
-  closeUploadBtn.addEventListener('click', () => {
-    userPinnedUpload = false;
-    if (jobCache.length) {
-      bodyEl.classList.remove('show-upload');
-    }
-  });
 }
 
 if (resumeJobBtn) {
   resumeJobBtn.addEventListener('click', () => {
     const lastJobId = localStorage.getItem('lastJobId');
     if (lastJobId) {
-      userPinnedUpload = true;
-      bodyEl.classList.add('show-upload');
       startJobTracking(lastJobId);
     }
   });
@@ -68,6 +50,70 @@ if (refreshJobsBtn) {
   refreshJobsBtn.addEventListener('click', () => loadJobs());
 }
 
+if (newJobBtn) {
+  newJobBtn.addEventListener('click', () => {
+    openUploadPanel();
+    resetUploadPanel();
+    fileInput?.focus();
+  });
+}
+
+if (closeUploadBtn) {
+  closeUploadBtn.addEventListener('click', () => {
+    closeUploadPanel();
+  });
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && pageBody?.classList.contains('show-upload')) {
+    closeUploadPanel();
+  }
+});
+
+if (dropzone) {
+  ['dragenter', 'dragover'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      if (eventName === 'drop') {
+        const files = event.dataTransfer?.files;
+        if (files?.length && fileInput) {
+          const transfer = new DataTransfer();
+          Array.from(files).forEach((file) => transfer.items.add(file));
+          fileInput.files = transfer.files;
+          updateSelectedFile();
+        }
+      }
+      dropzone.classList.remove('dragover');
+    });
+  });
+}
+
+if (fileInput) {
+  fileInput.addEventListener('change', updateSelectedFile);
+}
+
+function updateSelectedFile() {
+  if (!fileNameLabel || !fileInput) {
+    return;
+  }
+  const fileName = fileInput.files?.[0]?.name;
+  fileNameLabel.textContent = fileName || 'CSV · XLS · XLSX · up to 10k rows';
+}
+
+function openUploadPanel() {
+  pageBody?.classList.add('show-upload');
+}
+
+function closeUploadPanel() {
+  pageBody?.classList.remove('show-upload');
+}
+
 async function handleUploadSubmit(event) {
   event.preventDefault();
   if (!fileInput?.files?.length) {
@@ -77,14 +123,13 @@ async function handleUploadSubmit(event) {
 
   toggleLoading(true);
   showStatus('neutral', 'Uploading file and starting the job...');
-  const userId = (userIdInput?.value || '').trim() || 'demo-user';
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
 
   try {
     const response = await fetch('/v1/scraper/enricher/upload', {
       method: 'POST',
-      headers: { 'x-user-id': userId },
+      headers: { 'x-user-id': DEFAULT_USER_ID },
       body: formData,
     });
     const payload = await response.json();
@@ -100,9 +145,7 @@ async function handleUploadSubmit(event) {
       ? `Job ${payload.jobId} completed successfully.`
       : `Job ${payload.jobId} started. Track progress from the dashboard.`;
     showStatus('success', message);
-    userPinnedUpload = false;
     await loadJobs({ silent: true });
-    bodyEl.classList.remove('show-upload');
   } catch (error) {
     console.error(error);
     showStatus('error', error.message);
@@ -148,6 +191,7 @@ function renderResults(payload) {
 function resetUploadPanel() {
   form?.reset();
   clearStatus();
+  updateSelectedFile();
   if (resultsSection) {
     resultsSection.hidden = true;
   }
@@ -172,6 +216,7 @@ function startJobTracking(jobId) {
   if (!jobId) {
     return;
   }
+  openUploadPanel();
   activeJobId = jobId;
   localStorage.setItem('lastJobId', jobId);
   if (progressSection) {
@@ -257,13 +302,11 @@ function updateProgressUI(metadata) {
   const counts = progress.statusCounts || {};
   if (statusCountsList) {
     statusCountsList.innerHTML = '';
-    const displayOrder = ['valid', 'catchall_default', 'not_found_valid_emails', 'error', 'other', 'skipped'];
+    const displayOrder = ['valid', 'catch_all', 'not_found', 'skipped'];
     const labelMap = {
       valid: 'Valid',
-      catchall_default: 'Catch-All',
-      not_found_valid_emails: 'Not Found',
-      error: 'Error',
-      other: 'Other',
+      catch_all: 'Catch-All',
+      not_found: 'Not Found',
       skipped: 'Skipped',
     };
 
@@ -299,31 +342,10 @@ async function loadJobs({ silent } = {}) {
     const { jobs = [] } = await response.json();
     jobCache = jobs;
     applyJobFilter();
-    ensureDefaultView();
   } catch (error) {
     if (!silent) {
       showStatus('error', error.message);
     }
-  }
-}
-
-function ensureDefaultView() {
-  if (!jobCache.length) {
-    bodyEl.classList.add('show-upload');
-    if (closeUploadBtn) {
-      closeUploadBtn.hidden = true;
-    }
-    if (emptyState) {
-      emptyState.style.display = 'block';
-    }
-    return;
-  }
-
-  if (closeUploadBtn) {
-    closeUploadBtn.hidden = false;
-  }
-  if (!userPinnedUpload) {
-    bodyEl.classList.remove('show-upload');
   }
 }
 
@@ -509,5 +531,6 @@ function restoreLastJob() {
   });
 }
 
+updateSelectedFile();
 loadJobs();
 restoreLastJob();

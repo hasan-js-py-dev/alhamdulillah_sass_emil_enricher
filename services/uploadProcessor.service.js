@@ -9,7 +9,8 @@ import { parseWorkbook } from './upload/workbookParser.service.js';
 import { resolveColumns, normalizeRows } from './upload/rowNormalizer.service.js';
 import { buildCsvColumnOrder, createCsvSnapshotWriter, composeCsvRowData } from './upload/csvSnapshot.service.js';
 import { createProgressSnapshot, normalizeStatusBucket } from './upload/progress.service.js';
-import { buildResultSets, deriveMessageSummary } from './upload/resultBuilder.service.js';
+import { buildResultSets } from './upload/resultBuilder.service.js';
+import { normalizeDeliveryStatus, DELIVERY_STATUS } from './upload/status.utils.js';
 
 export async function processUploadedFile({ jobId, jobDir, file, userId, onReady }) {
   markJobActive(jobId);
@@ -50,16 +51,20 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
 
     const runnableRows = normalizedRows.filter((row) => row.contact);
     const progress = createProgressSnapshot(runnableRows.length, normalizedRows.length - runnableRows.length);
-    const csvColumns = buildCsvColumnOrder(normalizedRows);
+    const csvColumns = buildCsvColumnOrder();
     const outputFilename = `output-${jobId}-${Date.now()}.csv`;
     const outputPath = buildJobFilePath(jobDir, outputFilename);
     const downloadUrl = `/v1/scraper/enricher/download/${jobId}`;
-    const initialCsvRows = normalizedRows.map((row) =>
-      composeCsvRowData(row.sanitizedRow, row.contact ? {} : {
-        status: 'skipped_missing_fields',
-        messageSummary: row.skipReason,
-      }),
-    );
+    const initialCsvRows = normalizedRows.map((row) => {
+      const overrides = {};
+      if (row.existingEmail) {
+        overrides.Email = row.existingEmail;
+        overrides.Status = DELIVERY_STATUS.VALID;
+      } else if (!row.contact) {
+        overrides.Status = DELIVERY_STATUS.NOT_FOUND;
+      }
+      return composeCsvRowData(row.sanitizedRow, overrides);
+    });
     const csvWriter = createCsvSnapshotWriter(outputPath, csvColumns, initialCsvRows);
     await csvWriter.writeSnapshot();
 
@@ -106,9 +111,8 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
         return;
       }
       const csvRow = composeCsvRowData(rowInfo.sanitizedRow, {
-        bestEmail: resultPayload.bestEmail || '',
-        status: resultPayload.status || '',
-        messageSummary: deriveMessageSummary(resultPayload),
+        Email: resultPayload.bestEmail || '',
+        Status: normalizeDeliveryStatus(resultPayload.status),
       });
       await csvWriter.setRow(rowId, csvRow);
     };

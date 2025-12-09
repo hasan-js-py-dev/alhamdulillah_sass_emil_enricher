@@ -1,4 +1,5 @@
 import { config } from '../config/env.js';
+import { DELIVERY_STATUS } from './upload/status.utils.js';
 
 const MAX_COMBOS_DEFAULT = 8;
 
@@ -114,7 +115,7 @@ async function advanceState(state, verifyEmail, maxCombos, notify) {
       message: result?.message ?? result?.raw?.message ?? null,
     });
     state.bestEmail = null;
-    state.status = 'not_found_valid_emails';
+    state.status = DELIVERY_STATUS.NOT_FOUND;
     state.details = { reason: 'Domain missing MX records' };
     state.done = true;
     if (notify) {
@@ -125,7 +126,7 @@ async function advanceState(state, verifyEmail, maxCombos, notify) {
 
   if (result?.code === 'ok') {
     state.bestEmail = email;
-    state.status = 'valid';
+    state.status = DELIVERY_STATUS.VALID;
     state.details = { code: result.code, message: result.message };
     state.done = true;
     if (notify) {
@@ -149,12 +150,12 @@ async function finalizeState(state, notify) {
 
   if (allCatchAll) {
     state.bestEmail = state.patterns[2] || state.patterns[0] || null;
-    state.status = 'catchall_default';
+    state.status = DELIVERY_STATUS.CATCH_ALL;
     state.details = { reason: 'All candidates returned Catch-All' };
   } else {
     const firstError = state.resultsPerCombo.find((entry) => entry.error)?.error;
     state.bestEmail = null;
-    state.status = 'not_found_valid_emails';
+    state.status = DELIVERY_STATUS.NOT_FOUND;
     state.details = {
       reason: 'All candidates rejected or unverifiable',
       ...(firstError ? { lastError: firstError } : {}),

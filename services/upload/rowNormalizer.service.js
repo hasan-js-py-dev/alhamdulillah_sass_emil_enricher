@@ -1,7 +1,9 @@
 // Converts worksheet rows into sanitized contact profiles while tracking skip reasons.
 import { cleanName, cleanDomain } from '../../utils/dataCleaner.js';
-import { COLUMN_ALIASES } from './upload.constants.js';
+import { COLUMN_ALIASES, OUTPUT_COLUMNS } from './upload.constants.js';
 import { normalizeKey } from './normalization.utils.js';
+
+const [FIRST_NAME_COLUMN, LAST_NAME_COLUMN, WEBSITE_COLUMN] = OUTPUT_COLUMNS;
 
 export function resolveColumns(headers) {
   const normalizedMap = new Map();
@@ -12,12 +14,13 @@ export function resolveColumns(headers) {
   const firstNameKey = findColumnKey(normalizedMap, COLUMN_ALIASES.firstName);
   const lastNameKey = findColumnKey(normalizedMap, COLUMN_ALIASES.lastName);
   const websiteKey = findColumnKey(normalizedMap, COLUMN_ALIASES.website);
+  const emailKey = findColumnKey(normalizedMap, COLUMN_ALIASES.email || []);
 
   if (!firstNameKey || !lastNameKey || !websiteKey) {
     throw new Error('File must include First Name, Last Name, and Website columns.');
   }
 
-  return { firstNameKey, lastNameKey, websiteKey };
+  return { firstNameKey, lastNameKey, websiteKey, emailKey };
 }
 
 export function normalizeRows(rows, initialColumnMap, headerRowIndex, initialHeaders) {
@@ -52,6 +55,7 @@ export function normalizeRows(rows, initialColumnMap, headerRowIndex, initialHea
       contact: sanitized.contact,
       skipReason: sanitized.skipReason,
       profile: sanitized.profile,
+      existingEmail: sanitized.existingEmail || '',
     });
   });
 
@@ -62,31 +66,90 @@ export function sanitizeRow(rowObject, columnMap) {
   const rawFirst = rowObject[columnMap.firstNameKey];
   const rawLast = rowObject[columnMap.lastNameKey];
   const rawDomain = rowObject[columnMap.websiteKey];
+  const rawEmail = columnMap.emailKey ? rowObject[columnMap.emailKey] : '';
 
-  const firstName = cleanName(rawFirst);
-  const lastName = cleanName(rawLast);
+  const firstName = keepFirstToken(cleanName(rawFirst));
+  const lastName = keepLastToken(cleanName(rawLast));
   const domain = cleanDomain(rawDomain);
+  const existingEmail = extractEmail(rawEmail);
 
-  const sanitizedRow = { ...rowObject };
-  sanitizedRow[columnMap.firstNameKey] = firstName;
-  sanitizedRow[columnMap.lastNameKey] = lastName;
-  sanitizedRow[columnMap.websiteKey] = domain;
+  const sanitizedRow = {
+    [FIRST_NAME_COLUMN]: firstName,
+    [LAST_NAME_COLUMN]: lastName,
+    [WEBSITE_COLUMN]: domain,
+  };
 
   const profile = { firstName, lastName, domain };
+  const emptyProfile = !firstName && !lastName && !domain;
 
-  if (!firstName && !lastName && !domain) {
+  if (emptyProfile && !existingEmail) {
     return null;
   }
 
+  if (existingEmail) {
+    return {
+      sanitizedRow,
+      contact: null,
+      skipReason: 'Existing email provided',
+      profile,
+      existingEmail,
+    };
+  }
+
   if (!domain) {
-    return { sanitizedRow, contact: null, skipReason: 'Missing website/domain', profile };
+    return {
+      sanitizedRow,
+      contact: null,
+      skipReason: 'Missing website/domain',
+      profile,
+      existingEmail: '',
+    };
   }
 
   if (!firstName && !lastName) {
-    return { sanitizedRow, contact: null, skipReason: 'Missing first and last name', profile };
+    return {
+      sanitizedRow,
+      contact: null,
+      skipReason: 'Missing first and last name',
+      profile,
+      existingEmail: '',
+    };
   }
 
-  return { sanitizedRow, contact: profile, skipReason: null, profile };
+  return { sanitizedRow, contact: profile, skipReason: null, profile, existingEmail: '' };
+}
+
+function keepFirstToken(value) {
+  if (!value) {
+    return '';
+  }
+  const tokens = tokenizeName(value);
+  return tokens[0] || '';
+}
+
+function keepLastToken(value) {
+  if (!value) {
+    return '';
+  }
+  const tokens = tokenizeName(value);
+  return tokens[tokens.length - 1] || '';
+}
+
+function tokenizeName(value) {
+  return value
+    .replace(/-/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function extractEmail(value) {
+  const email = String(value ?? '').trim();
+  if (!email) {
+    return '';
+  }
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return EMAIL_REGEX.test(email) ? email : '';
 }
 
 function findColumnKey(normalizedHeaderMap, candidates) {

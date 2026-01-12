@@ -2,8 +2,41 @@
 import fs from 'fs/promises';
 import { OUTPUT_COLUMNS, CSV_APPEND_COLUMNS } from './upload.constants.js';
 
-export function buildCsvColumnOrder() {
-  return [...OUTPUT_COLUMNS, ...CSV_APPEND_COLUMNS];
+export function buildCsvColumnOrder(headers = [], columnMap = null) {
+  if (!Array.isArray(headers) || headers.length === 0) {
+    return [...OUTPUT_COLUMNS, ...CSV_APPEND_COLUMNS];
+  }
+
+  const [FIRST_NAME_COLUMN, LAST_NAME_COLUMN, WEBSITE_COLUMN] = OUTPUT_COLUMNS;
+  const baseColumns = [];
+  const seen = new Set();
+
+  const pushColumn = (column) => {
+    if (!column || seen.has(column)) {
+      return;
+    }
+    seen.add(column);
+    baseColumns.push(column);
+  };
+
+  const mapHeader = (header) => {
+    if (columnMap?.firstNameKey && header === columnMap.firstNameKey) {
+      return FIRST_NAME_COLUMN;
+    }
+    if (columnMap?.lastNameKey && header === columnMap.lastNameKey) {
+      return LAST_NAME_COLUMN;
+    }
+    if (columnMap?.websiteKey && header === columnMap.websiteKey) {
+      return WEBSITE_COLUMN;
+    }
+    return header;
+  };
+
+  headers.forEach((header) => pushColumn(mapHeader(header)));
+  OUTPUT_COLUMNS.forEach((column) => pushColumn(column));
+
+  const withoutAppendColumns = baseColumns.filter((column) => !CSV_APPEND_COLUMNS.includes(column));
+  return [...withoutAppendColumns, ...CSV_APPEND_COLUMNS];
 }
 
 export function createCsvSnapshotWriter(filePath, columns, initialRows) {

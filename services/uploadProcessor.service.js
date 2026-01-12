@@ -42,16 +42,18 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
     const parsed = await parseWorkbook(file.path);
     enforceRowLimit(parsed.rows.length);
 
+    const initialColumnMap = resolveColumns(parsed.headers);
+
     const normalizedRows = normalizeRows(
       parsed.rows,
-      resolveColumns(parsed.headers),
+      initialColumnMap,
       parsed.headerRowIndex,
       parsed.headers,
     );
 
     const runnableRows = normalizedRows.filter((row) => row.contact);
     const progress = createProgressSnapshot(runnableRows.length, normalizedRows.length - runnableRows.length);
-    const csvColumns = buildCsvColumnOrder();
+    const csvColumns = buildCsvColumnOrder(parsed.headers, initialColumnMap);
     const outputFilename = `output-${jobId}-${Date.now()}.csv`;
     const outputPath = buildJobFilePath(jobDir, outputFilename);
     const downloadUrl = `/v1/scraper/enricher/download/${jobId}`;

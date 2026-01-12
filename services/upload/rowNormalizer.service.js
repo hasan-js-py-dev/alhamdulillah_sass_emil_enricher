@@ -73,11 +73,27 @@ export function sanitizeRow(rowObject, columnMap) {
   const domain = cleanDomain(rawDomain);
   const existingEmail = extractEmail(rawEmail);
 
-  const sanitizedRow = {
-    [FIRST_NAME_COLUMN]: firstName,
-    [LAST_NAME_COLUMN]: lastName,
-    [WEBSITE_COLUMN]: domain,
-  };
+  const sanitizedRow = {};
+  Object.keys(rowObject || {}).forEach((header) => {
+    const outputHeader = mapHeaderToOutputHeader(header, columnMap);
+    if (outputHeader === FIRST_NAME_COLUMN) {
+      sanitizedRow[outputHeader] = firstName;
+      return;
+    }
+    if (outputHeader === LAST_NAME_COLUMN) {
+      sanitizedRow[outputHeader] = lastName;
+      return;
+    }
+    if (outputHeader === WEBSITE_COLUMN) {
+      sanitizedRow[outputHeader] = domain;
+      return;
+    }
+    sanitizedRow[outputHeader] = rowObject[header] ?? '';
+  });
+
+  sanitizedRow[FIRST_NAME_COLUMN] = sanitizedRow[FIRST_NAME_COLUMN] ?? firstName;
+  sanitizedRow[LAST_NAME_COLUMN] = sanitizedRow[LAST_NAME_COLUMN] ?? lastName;
+  sanitizedRow[WEBSITE_COLUMN] = sanitizedRow[WEBSITE_COLUMN] ?? domain;
 
   const profile = { firstName, lastName, domain };
   const emptyProfile = !firstName && !lastName && !domain;
@@ -117,6 +133,19 @@ export function sanitizeRow(rowObject, columnMap) {
   }
 
   return { sanitizedRow, contact: profile, skipReason: null, profile, existingEmail: '' };
+}
+
+function mapHeaderToOutputHeader(header, columnMap) {
+  if (columnMap?.firstNameKey && header === columnMap.firstNameKey) {
+    return FIRST_NAME_COLUMN;
+  }
+  if (columnMap?.lastNameKey && header === columnMap.lastNameKey) {
+    return LAST_NAME_COLUMN;
+  }
+  if (columnMap?.websiteKey && header === columnMap.websiteKey) {
+    return WEBSITE_COLUMN;
+  }
+  return header;
 }
 
 function keepFirstToken(value) {

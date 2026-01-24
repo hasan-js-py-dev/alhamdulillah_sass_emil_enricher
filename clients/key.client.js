@@ -41,7 +41,7 @@ export async function getMailtesterKey() {
       const normalizedKey = extractKey(payload);
       const status = typeof payload.status === 'string' ? payload.status.toLowerCase() : null;
 
-      if (status === 'wait' && !normalizedKey) {
+      if (status === 'wait') {
         const waitMs = extractWaitDuration(payload);
         console.log('[KeyClient] Rotation service asked us to wait', { waitMs });
         await sleep(waitMs);

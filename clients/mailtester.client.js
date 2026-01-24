@@ -2,6 +2,15 @@ import axios from 'axios';
 import { config } from '../config/env.js';
 import { getMailtesterKey } from './key.client.js';
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /**
  * Verifies an email address using MailTester Ninja.
  * Enforces a minimum delay between calls via the rate limiter.
@@ -18,11 +27,27 @@ export async function verifyEmail(email) {
       throw new Error('Missing MailTester key');
     }
 
+    const nextAllowedAt = toNumber(keyInfo.nextRequestAllowedAt);
+    const avgIntervalMs = toNumber(keyInfo.avgRequestIntervalMs) ?? 0;
+    const waitUntilMs = nextAllowedAt ? Math.max(0, nextAllowedAt - Date.now()) : 0;
+    const waitMs = Math.max(waitUntilMs, avgIntervalMs);
+    if (waitMs > 0) {
+      console.log('[MailTester] Waiting before verification', {
+        email,
+        key,
+        waitMs,
+        avgRequestIntervalMs: avgIntervalMs,
+        nextRequestAllowedAt: nextAllowedAt,
+      });
+      await sleep(waitMs);
+    }
+
     // Prepare the request URL with encoded query parameters.
     const url = `${config.mailTesterBaseUrl}?email=${encodeURIComponent(email)}&key=${encodeURIComponent(key)}`;
     console.log('[MailTester] Requesting verification', {
       email,
       url,
+      key,
       avgRequestIntervalMs: keyInfo.avgRequestIntervalMs,
       nextRequestAllowedAt: keyInfo.nextRequestAllowedAt,
     });

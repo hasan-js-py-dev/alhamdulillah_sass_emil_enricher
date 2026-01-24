@@ -19,7 +19,8 @@ function extractWaitDuration(payload) {
 }
 
 function extractKey(data) {
-  const rawKey = data?.key ?? data?.subscriptionId ?? data?.id;
+  const candidate = Array.isArray(data?.keys) && data.keys.length > 0 ? data.keys[0] : data;
+  const rawKey = candidate?.key ?? candidate?.subscriptionId ?? candidate?.id;
   if (!rawKey) {
     return null;
   }

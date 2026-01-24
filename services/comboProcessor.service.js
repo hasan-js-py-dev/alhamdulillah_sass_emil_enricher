@@ -108,7 +108,7 @@ async function advanceState(state, verifyEmail, maxCombos, notify) {
     error: result?.error ?? null,
   });
 
-  if (state.currentComboIndex === 0 && isMissingMxRecords(result)) {
+  if (isMissingMxRecords(result)) {
     console.log('[ComboProcessor] Terminating contact due to missing MX records', {
       contact: state.contact,
       email,
@@ -117,6 +117,38 @@ async function advanceState(state, verifyEmail, maxCombos, notify) {
     state.bestEmail = null;
     state.status = DELIVERY_STATUS.NOT_FOUND;
     state.details = { reason: 'Domain missing MX records' };
+    state.done = true;
+    if (notify) {
+      await notify(buildResultPayload(state));
+    }
+    return;
+  }
+
+  if (isTimeout(result)) {
+    console.log('[ComboProcessor] Terminating contact due to domain timeout', {
+      contact: state.contact,
+      email,
+      error: result?.error ?? result?.message ?? result?.raw?.message ?? null,
+    });
+    state.bestEmail = null;
+    state.status = DELIVERY_STATUS.NOT_FOUND;
+    state.details = { reason: 'Domain lookup timed out' };
+    state.done = true;
+    if (notify) {
+      await notify(buildResultPayload(state));
+    }
+    return;
+  }
+
+  if (isCatchAll(result)) {
+    console.log('[ComboProcessor] Terminating contact due to catch-all domain', {
+      contact: state.contact,
+      email,
+      message: result?.message ?? result?.raw?.message ?? null,
+    });
+    state.bestEmail = state.patterns[0] || null;
+    state.status = DELIVERY_STATUS.CATCH_ALL;
+    state.details = { reason: 'Domain reported Catch-All' };
     state.done = true;
     if (notify) {
       await notify(buildResultPayload(state));
@@ -208,4 +240,42 @@ function containsNoMxSignal(value) {
     return false;
   }
   return normalized.includes('no ') || normalized.includes('not ') || normalized.includes('missing') || normalized.includes('without');
+}
+
+function isTimeout(result) {
+  const candidates = [
+    result?.code,
+    result?.message,
+    result?.raw?.code,
+    result?.raw?.message,
+    result?.raw?.reason,
+    result?.error,
+  ];
+
+  return candidates.some((value) => containsTimeoutSignal(value));
+}
+
+function containsTimeoutSignal(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const normalized = value.toLowerCase();
+  return (
+    normalized.includes('timeout') ||
+    normalized.includes('timed out') ||
+    normalized.includes('etimedout') ||
+    normalized.includes('econnaborted')
+  );
+}
+
+function isCatchAll(result) {
+  const candidates = [
+    result?.code,
+    result?.message,
+    result?.raw?.code,
+    result?.raw?.message,
+    result?.raw?.reason,
+  ];
+
+  return candidates.some((value) => typeof value === 'string' && value.toLowerCase().includes('catch-all'));
 }

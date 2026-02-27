@@ -15,6 +15,8 @@ export function buildResultSets(normalizedRows, enrichmentResults) {
         status: row.existingEmail ? DELIVERY_STATUS.VALID : DELIVERY_STATUS.NOT_FOUND,
         details: { reason: row.skipReason },
         allCheckedCandidates: [],
+        domainUsed: '',
+        notes: row.skipReason || '',
       };
       apiResults.push(skipResult);
       return;
@@ -37,5 +39,7 @@ function defaultResult(profile) {
     status: DELIVERY_STATUS.NOT_FOUND,
     details: { reason: 'Unexpected processing mismatch' },
     allCheckedCandidates: [],
+    domainUsed: '',
+    notes: '',
   };
 }

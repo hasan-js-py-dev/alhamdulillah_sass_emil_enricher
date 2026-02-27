@@ -10,23 +10,113 @@
     <main class="app-shell">
       <header class="app-header">
         <div class="brand">
-          <span class="brand-icon" aria-hidden="true">🔭</span>
+          <span class="brand-icon" aria-hidden="true"><i data-lucide="scan-search"></i></span>
           <div>
             <p class="eyebrow">Email Finder</p>
             <h1>Email Enricher</h1>
           </div>
         </div>
-        <button type="button" id="new-list-btn" class="primary-btn">
-          <span class="icon">+</span>
-          New Job
-        </button>
       </header>
 
-      <div class="panel-stack">
-        <section class="panel view-panel" id="list-view">
+      <section class="panel unified-panel" id="upload-panel">
+        <div class="upload-header">
+          <div>
+            <h2>Upload & Job Status</h2>
+            <p class="summary">Upload a CSV or Excel file, run enrichment, and monitor job progress below.</p>
+          </div>
+        </div>
+
+        <div class="upload-stack">
+          <form id="upload-form" class="upload-form">
+            <label class="dropzone" id="dropzone" for="file-input">
+              <input type="file" id="file-input" name="file" accept=".csv,.xls,.xlsx" required />
+              <div class="drop-icon" aria-hidden="true"><i data-lucide="upload-cloud"></i></div>
+              <p class="drop-title">Drop your file here or click to browse</p>
+              <p id="file-name" class="drop-meta">CSV · XLS · XLSX · up to 10k rows</p>
+            </label>
+
+            <div class="field-group guidance">
+              <div class="guidance-row">
+                <div>
+                  <p class="hint strong">Need a starting point?</p>
+                  <p class="hint">Download the ready template that already includes First Name, Last Name, and Website columns.</p>
+                </div>
+                <a class="template-link" href="./sample-template.csv" download>
+                  <i data-lucide="download" class="btn-icon" aria-hidden="true"></i>
+                  Download sample CSV
+                </a>
+              </div>
+              <div class="requirements">
+                <p class="hint">Required columns</p>
+                <div class="chip-row">
+                  <span class="chip">First Name</span>
+                  <span class="chip">Last Name</span>
+                  <span class="chip">Website / Domain</span>
+                  <span class="chip ghost">Website_one (optional 2nd domain)</span>
+                  <span class="chip ghost">Company Name (optional)</span>
+                </div>
+                <p class="hint">We automatically detect similar headers (firstname, lname, company website, etc.).</p>
+              </div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="primary-btn">Run Enrichment</button>
+          </form>
+          <div id="status-banner" class="status" role="status" aria-live="polite"></div>
+        </div>
+
+        <div id="progress-section" class="progress" hidden>
+          <div class="panel-header">
+            <div>
+              <h2>Job Progress</h2>
+              <p id="job-status" class="summary">No job running.</p>
+            </div>
+            <button type="button" id="resume-job" class="ghost-btn" hidden>Resume Last Job</button>
+          </div>
+          <div class="progress-bar">
+            <div id="progress-fill"></div>
+          </div>
+          <p id="enriched-count" class="summary metric">Enriched Emails: 0</p>
+          <ul id="status-counts" class="stats"></ul>
+        </div>
+
+        <div id="results-section" class="results" hidden>
+          <div class="panel-header">
+            <div>
+              <h2>Results Preview</h2>
+              <p id="job-summary" class="summary"></p>
+            </div>
+            <a id="download-link" class="primary-btn" href="#" target="_blank" rel="noopener">Download CSV</a>
+          </div>
+          <div class="table-wrapper results-table">
+            <table id="results-table">
+              <thead>
+                <tr>
+                  <th>First Name</th>
+                  <th>Last Name</th>
+                  <th>Domain</th>
+                  <th>Best Email</th>
+                  <th>Status</th>
+                  <th>Domain Used</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-divider" aria-hidden="true"></div>
+
+        <div class="jobs-section">
+          <div class="panel-header">
+            <div>
+              <h2>Job Details</h2>
+              <p class="summary">See past uploads and download results.</p>
+            </div>
+          </div>
           <div class="list-toolbar">
             <div class="search-field">
-              <span class="icon" aria-hidden="true">🔍</span>
+              <i data-lucide="search" class="search-icon" aria-hidden="true"></i>
               <input type="search" id="job-search" placeholder="Search by file name..." aria-label="Search jobs" />
             </div>
             <button type="button" id="refresh-jobs" class="ghost-btn">Refresh</button>
@@ -45,97 +135,12 @@
               <tbody id="jobs-tbody"></tbody>
             </table>
           </div>
-          <p id="empty-state" class="empty-state">No uploads yet. Click “New Job” to process your first file.</p>
-        </section>
-
-        <section id="upload-panel" class="panel upload-panel view-panel">
-          <div class="panel-header upload-header">
-            <div>
-              <h2>Upload Dashboard</h2>
-              <p class="summary">Upload a CSV or Excel file and monitor live enrichment progress.</p>
-            </div>
-            <button type="button" id="close-upload" class="ghost-btn">Back to Dashboard</button>
-          </div>
-
-          <div class="upload-stack">
-            <form id="upload-form" class="upload-form">
-              <label class="dropzone" id="dropzone" for="file-input">
-                <input type="file" id="file-input" name="file" accept=".csv,.xls,.xlsx" required />
-                <div class="drop-icon" aria-hidden="true">📁</div>
-                <p class="drop-title">Drop your file here or click to browse</p>
-                <p id="file-name" class="drop-meta">CSV · XLS · XLSX · up to 10k rows</p>
-              </label>
-
-              <div class="field-group guidance">
-                <div class="guidance-row">
-                  <div>
-                    <p class="hint strong">Need a starting point?</p>
-                    <p class="hint">Download the ready template that already includes First Name, Last Name, and Website columns.</p>
-                  </div>
-                  <a class="template-link" href="./sample-template.csv" download>
-                    <span class="icon" aria-hidden="true">⬇</span>
-                    Download sample CSV
-                  </a>
-                </div>
-                <div class="requirements">
-                  <p class="hint">Required columns</p>
-                  <div class="chip-row">
-                    <span class="chip">First Name</span>
-                    <span class="chip">Last Name</span>
-                    <span class="chip">Website / Domain</span>
-                    <span class="chip ghost">Company Name (optional)</span>
-                  </div>
-                  <p class="hint">We automatically detect similar headers (firstname, lname, company website, etc.).</p>
-                </div>
-              </div>
-
-              <button type="submit" id="submit-btn" class="primary-btn">Run Enrichment</button>
-            </form>
-            <div id="status-banner" class="status" role="status" aria-live="polite"></div>
-          </div>
-
-          <div id="progress-section" class="progress" hidden>
-            <div class="panel-header">
-              <div>
-                <h2>Job Progress</h2>
-                <p id="job-status" class="summary">No job running.</p>
-              </div>
-              <button type="button" id="resume-job" class="ghost-btn" hidden>Resume Last Job</button>
-            </div>
-            <div class="progress-bar">
-              <div id="progress-fill"></div>
-            </div>
-            <p id="enriched-count" class="summary metric">Enriched Emails: 0</p>
-            <ul id="status-counts" class="stats"></ul>
-          </div>
-
-          <div id="results-section" class="results" hidden>
-            <div class="panel-header">
-              <div>
-                <h2>Results Preview</h2>
-                <p id="job-summary" class="summary"></p>
-              </div>
-              <a id="download-link" class="primary-btn" href="#" target="_blank" rel="noopener">Download CSV</a>
-            </div>
-            <div class="table-wrapper results-table">
-              <table id="results-table">
-                <thead>
-                  <tr>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Domain</th>
-                    <th>Best Email</th>
-                    <th>Status</th>
-                    <th>Message</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      </div>
+          <p id="empty-state" class="empty-state">No uploads yet. Upload a file to get started.</p>
+        </div>
+      </section>
     </main>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script type="module" src="./app.js"></script>
+    <script>lucide.createIcons();</script>
   </body>
 </html>

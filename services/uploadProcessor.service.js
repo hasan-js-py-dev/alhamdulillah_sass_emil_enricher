@@ -62,8 +62,12 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
       if (row.existingEmail) {
         overrides.Email = row.existingEmail;
         overrides.Status = DELIVERY_STATUS.VALID;
+        overrides['Domain Used'] = '';
+        overrides['Notes'] = 'Pre-existing email';
       } else if (!row.contact) {
         overrides.Status = DELIVERY_STATUS.NOT_FOUND;
+        overrides['Domain Used'] = '';
+        overrides['Notes'] = row.skipReason || '';
       }
       return composeCsvRowData(row.sanitizedRow, overrides);
     });
@@ -115,6 +119,8 @@ export async function processUploadedFile({ jobId, jobDir, file, userId, onReady
       const csvRow = composeCsvRowData(rowInfo.sanitizedRow, {
         Email: resultPayload.bestEmail || '',
         Status: normalizeDeliveryStatus(resultPayload.status),
+        'Domain Used': resultPayload.domainUsed || '',
+        'Notes': resultPayload.notes || '',
       });
       await csvWriter.setRow(rowId, csvRow);
     };

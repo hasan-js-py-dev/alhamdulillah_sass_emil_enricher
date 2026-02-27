@@ -1,15 +1,45 @@
 :root {
-  --bg: #f5f2ff;
-  --panel: #ffffff;
-  --panel-border: #ece6ff;
-  --text: #1f1147;
-  --muted: #6c5c93;
-  --accent: #6735ff;
-  --accent-strong: #4b19e5;
-  --accent-soft: rgba(103, 53, 255, 0.08);
-  --success: #1ec794;
-  --error: #ff5c5c;
-  font-family: 'Inter', 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* --- Page shell --- */
+  --bg: #0a0a0f;
+  --bg-subtle: #111119;
+
+  /* --- Surfaces / panels --- */
+  --panel: #16161e;
+  --panel-hover: #1c1c27;
+  --panel-border: rgba(255, 255, 255, 0.08);
+
+  /* --- Typography --- */
+  --text: #f0f0f5;
+  --text-secondary: #a0a0b8;
+  --muted: #6b6b80;
+
+  /* --- Accent (indigo) --- */
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-strong: #4f46e5;
+  --accent-soft: rgba(99, 102, 241, 0.12);
+  --accent-glow: rgba(99, 102, 241, 0.25);
+
+  /* --- Semantic --- */
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.12);
+  --error: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.12);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.12);
+
+  /* --- Spacing & radius --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 * {
@@ -21,10 +51,12 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body.dashboard {
-  background: radial-gradient(circle at top left, #ffffff, #f5f2ff 60%, #e8e2ff);
+  background: var(--bg);
 }
 
 .app-shell {
@@ -41,84 +73,70 @@ body.dashboard {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--panel-border);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .brand-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
   color: #fff;
+}
+
+.brand-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2;
 }
 
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 12px;
-  margin: 0 0 4px;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  margin: 0 0 2px;
   color: var(--muted);
+  font-weight: 500;
 }
 
 h1 {
   margin: 0;
-  font-size: 32px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 24px;
+  border-radius: var(--radius-xl);
   padding: 24px;
-  box-shadow: 0 25px 70px rgba(29, 17, 71, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
-.panel-stack {
-  display: grid;
-  position: relative;
-  gap: 0;
-  isolation: isolate;
-}
-
-.view-panel {
-  grid-area: 1 / 1 / 2 / 2;
-  transition: opacity 0.45s ease, transform 0.45s ease;
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-  z-index: 1;
-}
-
-body:not(.show-upload) #upload-panel,
-body.show-upload #list-view {
-  opacity: 0;
-  transform: translateY(32px);
-  pointer-events: none;
-  visibility: hidden;
-}
-
-body.show-upload #upload-panel,
-body:not(.show-upload) #list-view {
-  opacity: 1;
-  transform: translateY(0);
-  visibility: visible;
-  z-index: 2;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .view-panel {
-    transition: none;
-    transform: none;
-  }
+.unified-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .panel-header {
@@ -129,40 +147,64 @@ body:not(.show-upload) #list-view {
   margin-bottom: 16px;
 }
 
+/* ── Buttons ─────────────────────────────────────── */
+
 .primary-btn,
 .ghost-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   border: none;
-  padding: 10px 22px;
-  font-weight: 600;
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.4;
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  background: var(--accent);
   color: #fff;
-  box-shadow: 0 12px 30px rgba(103, 53, 255, 0.35);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.4);
 }
 
 .primary-btn:hover {
-  transform: translateY(-1px);
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 1px var(--accent-hover), 0 0 16px var(--accent-glow);
+}
+
+.primary-btn:active {
+  background: var(--accent-strong);
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ghost-btn {
   background: transparent;
   border: 1px solid var(--panel-border);
+  color: var(--text-secondary);
+}
+
+.ghost-btn:hover {
+  background: var(--panel-hover);
+  border-color: rgba(255, 255, 255, 0.14);
   color: var(--text);
 }
 
-.icon {
-  font-size: 18px;
+.btn-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
 }
+
+/* ── Toolbar & Search ──────────────────────────────── */
 
 .list-toolbar {
   display: flex;
@@ -176,30 +218,49 @@ body:not(.show-upload) #list-view {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #f4f0ff;
-  border-radius: 16px;
+  gap: 10px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-md);
   padding: 10px 14px;
-  border: 1px solid transparent;
+  border: 1px solid var(--panel-border);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.search-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  flex-shrink: 0;
 }
 
 .search-field input {
   border: none;
   background: transparent;
   width: 100%;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text);
+}
+
+.search-field input::placeholder {
+  color: var(--muted);
 }
 
 .search-field input:focus {
   outline: none;
 }
 
+/* ── Tables ──────────────────────────────────────── */
+
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
   border: 1px solid var(--panel-border);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
 }
 
 .file-cell {
@@ -209,7 +270,8 @@ body:not(.show-upload) #list-view {
 }
 
 .file-cell strong {
-  font-size: 15px;
+  font-size: 14px;
+  color: var(--text);
 }
 
 .file-cell .meta {
@@ -228,14 +290,21 @@ body:not(.show-upload) #list-view {
 
 #jobs-table th,
 #jobs-table td {
-  padding: 18px 20px;
-  font-size: 15px;
+  padding: 14px 18px;
+  font-size: 14px;
   text-align: left;
 }
 
 #jobs-table thead {
-  background: #efe9ff;
-  color: var(--text);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
+#jobs-table thead th {
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 #jobs-table tbody tr {
@@ -243,44 +312,50 @@ body:not(.show-upload) #list-view {
 }
 
 #jobs-table tbody tr:hover {
-  background: #f8f5ff;
+  background: var(--panel-hover);
 }
+
+/* ── Status Pills ────────────────────────────────── */
 
 .status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .status-pill.processing {
-  background: rgba(255, 193, 59, 0.18);
-  color: #b06500;
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .status-pill.completed {
-  background: rgba(30, 199, 148, 0.18);
+  background: var(--success-bg);
   color: var(--success);
 }
 
 .status-pill.failed {
-  background: rgba(255, 92, 92, 0.18);
+  background: var(--error-bg);
   color: var(--error);
 }
 
 .status-pill.pending {
-  background: rgba(103, 53, 255, 0.18);
-  color: var(--accent-strong);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 .empty-state {
   margin-top: 16px;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--muted);
   text-align: center;
 }
+
+/* ── Upload Panel ────────────────────────────────── */
 
 .upload-panel {
   display: flex;
@@ -288,15 +363,27 @@ body:not(.show-upload) #list-view {
   gap: 24px;
 }
 
+.section-divider {
+  height: 1px;
+  background: var(--panel-border);
+  margin: 8px 0;
+}
+
+.jobs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .upload-header {
   margin-bottom: 8px;
 }
 
 .upload-stack {
-  background: #f8f5ff;
-  border-radius: 18px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-xl);
   padding: 24px;
-  border: 1px dashed rgba(103, 53, 255, 0.3);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
 }
 
 .upload-form {
@@ -305,17 +392,22 @@ body:not(.show-upload) #list-view {
 }
 
 .dropzone {
-  border: 1px dashed rgba(103, 53, 255, 0.6);
-  border-radius: 20px;
-  padding: 28px;
-  background: rgba(103, 53, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  background: rgba(99, 102, 241, 0.04);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-align: center;
   cursor: pointer;
-  transition: border 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.dropzone:hover {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .dropzone input {
@@ -325,33 +417,41 @@ body:not(.show-upload) #list-view {
 }
 
 .dropzone.dragover {
-  border-color: var(--accent-strong);
-  background: rgba(103, 53, 255, 0.12);
-  transform: translateY(-2px);
+  border-color: var(--accent-hover);
+  background: rgba(99, 102, 241, 0.14);
 }
 
 .drop-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: rgba(103, 53, 255, 0.15);
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  color: var(--accent-hover);
+}
+
+.drop-icon svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.5;
 }
 
 .drop-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
+  color: var(--text);
 }
 
 .drop-meta {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
+
+/* ── Guidance & Chips ────────────────────────────── */
 
 .field-group {
   display: flex;
@@ -371,17 +471,25 @@ body:not(.show-upload) #list-view {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 18px;
-  border-radius: 999px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
   text-decoration: none;
-  font-weight: 600;
-  color: var(--accent-strong);
-  background: #fff;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--accent-hover);
+  background: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.template-link .icon {
-  font-size: 16px;
+.template-link:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.template-link .btn-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .requirements {
@@ -396,16 +504,16 @@ body:not(.show-upload) #list-view {
 }
 
 .chip {
-  padding: 6px 16px;
-  border-radius: 999px;
-  background: rgba(103, 53, 255, 0.12);
+  padding: 5px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
   font-weight: 600;
-  color: var(--accent-strong);
+  color: var(--accent-hover);
   font-size: 13px;
 }
 
 .chip.ghost {
-  background: rgba(31, 17, 71, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--muted);
 }
 
@@ -417,14 +525,17 @@ body:not(.show-upload) #list-view {
 
 .hint.strong {
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-secondary);
 }
+
+/* ── Status Banners ──────────────────────────────── */
 
 .status {
   margin-top: 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   padding: 12px 16px;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 14px;
   display: none;
 }
 
@@ -433,37 +544,43 @@ body:not(.show-upload) #list-view {
 }
 
 .status.success {
-  background: rgba(30, 199, 148, 0.18);
+  background: var(--success-bg);
   color: var(--success);
+  border: 1px solid rgba(52, 211, 153, 0.2);
 }
 
 .status.error {
-  background: rgba(255, 92, 92, 0.15);
+  background: var(--error-bg);
   color: var(--error);
+  border: 1px solid rgba(248, 113, 113, 0.2);
 }
 
 .status.neutral {
-  background: rgba(103, 53, 255, 0.1);
-  color: var(--accent-strong);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
+
+/* ── Progress Section ────────────────────────────── */
 
 .progress {
   border: 1px solid var(--panel-border);
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   padding: 24px;
-  background: #fff;
+  background: var(--panel);
 }
 
 .summary {
-  color: var(--muted);
+  color: var(--text-secondary);
   margin: 4px 0 0;
+  font-size: 14px;
 }
 
 .progress-bar {
   width: 100%;
-  height: 12px;
+  height: 8px;
   border-radius: 999px;
-  background: #f1e9ff;
+  background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
   margin-bottom: 18px;
 }
@@ -472,7 +589,7 @@ body:not(.show-upload) #list-view {
   height: 100%;
   width: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  background: var(--accent);
   transition: width 0.3s ease;
 }
 
@@ -487,42 +604,55 @@ body:not(.show-upload) #list-view {
 
 .stats li {
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   padding: 14px;
   text-align: center;
-  background: #fdfbff;
+  background: var(--bg-subtle);
 }
 
 .stats span {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .stats strong {
   display: block;
   margin-top: 4px;
   font-size: 20px;
+  color: var(--text);
 }
+
+/* ── Download Link ───────────────────────────────── */
 
 .download-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
-  border-radius: 14px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
   text-decoration: none;
-  font-weight: 600;
-  color: var(--text);
-  background: #fff;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--accent-hover);
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.download-link:hover {
+  background: var(--accent-soft);
 }
 
 .download-link.disabled {
-  opacity: 0.45;
+  opacity: 0.35;
   pointer-events: none;
 }
+
+/* ── Results Table ───────────────────────────────── */
 
 .results-table {
   margin-top: 16px;
@@ -533,15 +663,33 @@ body:not(.show-upload) #list-view {
 }
 
 #results-table thead {
-  background: #efe9ff;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 #results-table th,
 #results-table td {
-  padding: 12px 16px;
-  font-size: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
   text-align: left;
 }
+
+#results-table thead th {
+  font-weight: 500;
+  font-size: 12px;
+}
+
+#results-table tbody tr {
+  border-top: 1px solid var(--panel-border);
+}
+
+#results-table tbody tr:hover {
+  background: var(--panel-hover);
+}
+
+/* ── Responsive ──────────────────────────────────── */
 
 @media (max-width: 768px) {
   .app-header {
@@ -552,12 +700,13 @@ body:not(.show-upload) #list-view {
   .upload-stack,
   .progress,
   .results {
-    padding: 20px;
+    padding: 18px;
   }
 
   #jobs-table th,
   #jobs-table td {
-    padding: 14px;
+    padding: 12px;
+    font-size: 13px;
   }
 
   .guidance-row {

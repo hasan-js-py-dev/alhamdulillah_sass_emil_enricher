@@ -1,6 +1,6 @@
 // Converts worksheet rows into sanitized contact profiles while tracking skip reasons.
 import { cleanName, cleanDomain } from '../../utils/dataCleaner.js';
-import { COLUMN_ALIASES, OUTPUT_COLUMNS } from './upload.constants.js';
+import { COLUMN_ALIASES, OUTPUT_COLUMNS, WEBSITE_ONE_COLUMN } from './upload.constants.js';
 import { normalizeKey } from './normalization.utils.js';
 
 const [FIRST_NAME_COLUMN, LAST_NAME_COLUMN, WEBSITE_COLUMN] = OUTPUT_COLUMNS;
@@ -14,13 +14,14 @@ export function resolveColumns(headers) {
   const firstNameKey = findColumnKey(normalizedMap, COLUMN_ALIASES.firstName);
   const lastNameKey = findColumnKey(normalizedMap, COLUMN_ALIASES.lastName);
   const websiteKey = findColumnKey(normalizedMap, COLUMN_ALIASES.website);
+  const websiteOneKey = findColumnKey(normalizedMap, COLUMN_ALIASES.websiteOne || []);
   const emailKey = findColumnKey(normalizedMap, COLUMN_ALIASES.email || []);
 
   if (!firstNameKey || !lastNameKey || !websiteKey) {
     throw new Error('File must include First Name, Last Name, and Website columns.');
   }
 
-  return { firstNameKey, lastNameKey, websiteKey, emailKey };
+  return { firstNameKey, lastNameKey, websiteKey, websiteOneKey, emailKey };
 }
 
 export function normalizeRows(rows, initialColumnMap, headerRowIndex, initialHeaders) {
@@ -66,11 +67,13 @@ export function sanitizeRow(rowObject, columnMap) {
   const rawFirst = rowObject[columnMap.firstNameKey];
   const rawLast = rowObject[columnMap.lastNameKey];
   const rawDomain = rowObject[columnMap.websiteKey];
+  const rawDomainTwo = columnMap.websiteOneKey ? rowObject[columnMap.websiteOneKey] : '';
   const rawEmail = columnMap.emailKey ? rowObject[columnMap.emailKey] : '';
 
   const firstName = keepFirstToken(cleanName(rawFirst));
   const lastName = keepLastToken(cleanName(rawLast));
   const domain = cleanDomain(rawDomain);
+  const domain2 = cleanDomain(rawDomainTwo);
   const existingEmail = extractEmail(rawEmail);
 
   const sanitizedRow = {};
@@ -88,6 +91,10 @@ export function sanitizeRow(rowObject, columnMap) {
       sanitizedRow[outputHeader] = domain;
       return;
     }
+    if (outputHeader === WEBSITE_ONE_COLUMN) {
+      sanitizedRow[outputHeader] = domain2;
+      return;
+    }
     sanitizedRow[outputHeader] = rowObject[header] ?? '';
   });
 
@@ -96,6 +103,9 @@ export function sanitizeRow(rowObject, columnMap) {
   sanitizedRow[WEBSITE_COLUMN] = sanitizedRow[WEBSITE_COLUMN] ?? domain;
 
   const profile = { firstName, lastName, domain };
+  if (domain2) {
+    profile.domain2 = domain2;
+  }
   const emptyProfile = !firstName && !lastName && !domain;
 
   if (emptyProfile && !existingEmail) {
@@ -144,6 +154,9 @@ function mapHeaderToOutputHeader(header, columnMap) {
   }
   if (columnMap?.websiteKey && header === columnMap.websiteKey) {
     return WEBSITE_COLUMN;
+  }
+  if (columnMap?.websiteOneKey && header === columnMap.websiteOneKey) {
+    return WEBSITE_ONE_COLUMN;
   }
   return header;
 }

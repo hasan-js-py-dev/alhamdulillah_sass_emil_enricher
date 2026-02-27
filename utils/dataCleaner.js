@@ -15,6 +15,9 @@ export function cleanDomain(value) {
   if (!domain) {
     return '';
   }
+  if (domain.includes('@')) {
+    domain = domain.split('@').pop();
+  }
   domain = domain.replace(/^https?:\/\//, '');
   domain = domain.replace(/^www\./, '');
   domain = domain.split(/[\/\s]/)[0];

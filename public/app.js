@@ -1,4 +1,4 @@
-const EMPTY_DEFAULT_MESSAGE = 'No uploads yet. Drop your first file to get started.';
+const EMPTY_DEFAULT_MESSAGE = 'No uploads yet. Upload a file to get started.';
 const EMPTY_FILTER_MESSAGE = 'No lists match your search.';
 const form = document.getElementById('upload-form');
 const fileInput = document.getElementById('file-input');
@@ -20,10 +20,9 @@ const refreshJobsBtn = document.getElementById('refresh-jobs');
 const emptyState = document.getElementById('empty-state');
 const dropzone = document.getElementById('dropzone');
 const fileNameLabel = document.getElementById('file-name');
-const newJobBtn = document.getElementById('new-list-btn');
-const closeUploadBtn = document.getElementById('close-upload');
-const pageBody = document.body || document.querySelector('body');
 const DEFAULT_USER_ID = 'demo-user';
+
+const JOB_PROGRESS_STORAGE_PREFIX = 'jobProgress:';
 
 let pollHandle = null;
 let activeJobId = null;
@@ -49,26 +48,6 @@ if (jobSearchInput) {
 if (refreshJobsBtn) {
   refreshJobsBtn.addEventListener('click', () => loadJobs());
 }
-
-if (newJobBtn) {
-  newJobBtn.addEventListener('click', () => {
-    openUploadPanel();
-    resetUploadPanel();
-    fileInput?.focus();
-  });
-}
-
-if (closeUploadBtn) {
-  closeUploadBtn.addEventListener('click', () => {
-    closeUploadPanel();
-  });
-}
-
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && pageBody?.classList.contains('show-upload')) {
-    closeUploadPanel();
-  }
-});
 
 if (dropzone) {
   ['dragenter', 'dragover'].forEach((eventName) => {
@@ -106,14 +85,6 @@ function updateSelectedFile() {
   fileNameLabel.textContent = fileName || 'CSV · XLS · XLSX · up to 10k rows';
 }
 
-function openUploadPanel() {
-  pageBody?.classList.add('show-upload');
-}
-
-function closeUploadPanel() {
-  pageBody?.classList.remove('show-upload');
-}
-
 async function handleUploadSubmit(event) {
   event.preventDefault();
   if (!fileInput?.files?.length) {
@@ -121,6 +92,7 @@ async function handleUploadSubmit(event) {
     return;
   }
 
+  resetJobSections();
   toggleLoading(true);
   showStatus('neutral', 'Uploading file and starting the job...');
   const formData = new FormData();
@@ -143,7 +115,7 @@ async function handleUploadSubmit(event) {
     const completed = Boolean(payload?.results?.length) || payload.status === 'completed';
     const message = completed
       ? `Job ${payload.jobId} completed successfully.`
-      : `Job ${payload.jobId} started. Track progress from the dashboard.`;
+      : `Job ${payload.jobId} started. Progress is shown below.`;
     showStatus('success', message);
     await loadJobs({ silent: true });
   } catch (error) {
@@ -182,16 +154,15 @@ function renderResults(payload) {
       <td>${result.domain || ''}</td>
       <td>${result.bestEmail || '<span class="muted">n/a</span>'}</td>
       <td>${result.status || ''}</td>
+      <td>${result.domainUsed || ''}</td>
       <td>${deriveMessage(result)}</td>
     `;
     resultsTableBody.appendChild(row);
   });
 }
 
-function resetUploadPanel() {
-  form?.reset();
+function resetJobSections() {
   clearStatus();
-  updateSelectedFile();
   if (resultsSection) {
     resultsSection.hidden = true;
   }
@@ -212,40 +183,48 @@ function resetUploadPanel() {
   }
 }
 
-function startJobTracking(jobId) {
+function startJobTracking(jobId, { silent } = {}) {
   if (!jobId) {
     return;
   }
-  openUploadPanel();
   activeJobId = jobId;
   localStorage.setItem('lastJobId', jobId);
   if (progressSection) {
     progressSection.hidden = false;
   }
   if (jobStatusText) {
-    jobStatusText.textContent = `Job ${jobId} • processing`;
+    jobStatusText.textContent = `Job ${jobId} • loading…`;
   }
   if (resumeJobBtn) {
     resumeJobBtn.hidden = false;
   }
-  fetchJobStatus(jobId);
+
+  hydrateProgressFromStorage(jobId);
+  fetchJobStatus(jobId, { silent: Boolean(silent) });
   if (pollHandle) {
     clearInterval(pollHandle);
   }
-  pollHandle = setInterval(() => fetchJobStatus(jobId), 4000);
+  pollHandle = setInterval(() => fetchJobStatus(jobId, { silent: Boolean(silent) }), 4000);
 }
 
 async function fetchJobStatus(jobId, { silent } = {}) {
   try {
     const response = await fetch(`/v1/scraper/enricher/jobs/${jobId}`);
     if (!response.ok) {
-      if (!silent) {
-        showStatus('error', 'Unable to load job status.');
+      // Only treat "not found" as terminal. Other failures can be transient.
+      if (response.status === 404) {
+        if (!silent) {
+          showStatus('error', 'Unable to load job status (job not found).');
+        }
+        cleanupJobPolling();
+        localStorage.removeItem('lastJobId');
+        if (resumeJobBtn) {
+          resumeJobBtn.hidden = true;
+        }
+        return null;
       }
-      cleanupJobPolling();
-      localStorage.removeItem('lastJobId');
-      if (resumeJobBtn) {
-        resumeJobBtn.hidden = true;
+      if (!silent) {
+        showStatus('error', 'Unable to load job status. Retrying…');
       }
       return null;
     }
@@ -263,7 +242,7 @@ async function fetchJobStatus(jobId, { silent } = {}) {
     return metadata;
   } catch (error) {
     if (!silent) {
-      showStatus('error', error.message);
+      showStatus('error', `${error.message} Retrying…`);
     }
     return null;
   }
@@ -330,6 +309,57 @@ function updateProgressUI(metadata) {
 
   if (downloadUrl && downloadLink) {
     downloadLink.href = downloadUrl;
+  }
+
+  persistProgressSnapshot(metadata);
+}
+
+function getProgressStorageKey(jobId) {
+  return `${JOB_PROGRESS_STORAGE_PREFIX}${jobId}`;
+}
+
+function persistProgressSnapshot(metadata) {
+  if (!metadata?.jobId) {
+    return;
+  }
+  try {
+    const snapshot = {
+      jobId: metadata.jobId,
+      status: metadata.status,
+      progress: metadata.progress || null,
+      totals: metadata.totals || null,
+      downloadUrl: metadata.downloadUrl || null,
+      originalFilename: metadata.originalFilename,
+      createdAt: metadata.createdAt,
+      completedAt: metadata.completedAt || null,
+      resultCount: metadata.resultCount,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(getProgressStorageKey(metadata.jobId), JSON.stringify(snapshot));
+  } catch {
+    // Ignore storage errors (quota, private mode, etc.).
+  }
+}
+
+function hydrateProgressFromStorage(jobId) {
+  if (!jobId) {
+    return;
+  }
+  try {
+    const raw = localStorage.getItem(getProgressStorageKey(jobId));
+    if (!raw) {
+      return;
+    }
+    const snapshot = JSON.parse(raw);
+    if (!snapshot?.jobId) {
+      return;
+    }
+    if (progressSection) {
+      progressSection.hidden = false;
+    }
+    updateProgressUI(snapshot);
+  } catch {
+    // Ignore malformed storage.
   }
 }
 
@@ -521,16 +551,27 @@ function restoreLastJob() {
   if (resumeJobBtn) {
     resumeJobBtn.hidden = false;
   }
-  fetchJobStatus(lastJobId, { silent: true }).then((metadata) => {
-    if (metadata) {
-      startJobTracking(lastJobId);
-    } else if (resumeJobBtn) {
-      resumeJobBtn.hidden = true;
-      localStorage.removeItem('lastJobId');
-    }
-  });
+  hydrateProgressFromStorage(lastJobId);
+  // Start polling immediately; if the job is gone, fetchJobStatus(404) will clean up.
+  startJobTracking(lastJobId, { silent: true });
 }
 
-updateSelectedFile();
-loadJobs();
-restoreLastJob();
+function resumeMostRecentProcessingJob() {
+  const lastJobId = localStorage.getItem('lastJobId');
+  if (lastJobId) {
+    return;
+  }
+  const candidate = jobCache.find((job) => job?.status === 'processing' && job?.userId === DEFAULT_USER_ID);
+  if (candidate?.jobId) {
+    startJobTracking(candidate.jobId, { silent: true });
+  }
+}
+
+async function bootstrap() {
+  updateSelectedFile();
+  await loadJobs({ silent: true });
+  restoreLastJob();
+  resumeMostRecentProcessingJob();
+}
+
+bootstrap();

@@ -1,6 +1,6 @@
 // Builds CSV column order and maintains an append-friendly snapshot writer for job outputs.
 import fs from 'fs/promises';
-import { OUTPUT_COLUMNS, CSV_APPEND_COLUMNS } from './upload.constants.js';
+import { OUTPUT_COLUMNS, CSV_APPEND_COLUMNS, WEBSITE_ONE_COLUMN } from './upload.constants.js';
 
 export function buildCsvColumnOrder(headers = [], columnMap = null) {
   if (!Array.isArray(headers) || headers.length === 0) {
@@ -28,6 +28,9 @@ export function buildCsvColumnOrder(headers = [], columnMap = null) {
     }
     if (columnMap?.websiteKey && header === columnMap.websiteKey) {
       return WEBSITE_COLUMN;
+    }
+    if (columnMap?.websiteOneKey && header === columnMap.websiteOneKey) {
+      return WEBSITE_ONE_COLUMN;
     }
     return header;
   };

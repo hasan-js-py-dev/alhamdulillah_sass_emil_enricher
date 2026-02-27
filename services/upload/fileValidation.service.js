@@ -10,6 +10,9 @@ export function validateExtension(filename) {
 }
 
 export function enforceRowLimit(rowCount) {
+  if (!Number.isFinite(MAX_ROWS)) {
+    return;
+  }
   if (rowCount > MAX_ROWS) {
     throw new Error(`Row limit exceeded. Maximum supported rows: ${MAX_ROWS}.`);
   }

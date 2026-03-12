@@ -106,7 +106,7 @@ export function sanitizeRow(rowObject, columnMap) {
   if (domain2) {
     profile.domain2 = domain2;
   }
-  const emptyProfile = !firstName && !lastName && !domain;
+  const emptyProfile = !firstName && !lastName && !domain && !domain2;
 
   if (emptyProfile && !existingEmail) {
     return null;
@@ -122,7 +122,7 @@ export function sanitizeRow(rowObject, columnMap) {
     };
   }
 
-  if (!domain) {
+  if (!domain && !domain2) {
     return {
       sanitizedRow,
       contact: null,
